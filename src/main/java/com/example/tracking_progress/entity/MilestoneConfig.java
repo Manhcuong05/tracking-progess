@@ -15,24 +15,20 @@ import java.time.LocalDateTime;
 @Builder
 public class MilestoneConfig {
 
-    public static final MilestoneType CORE = null;
-
-    public static final MilestoneType ADDON = null;
-
     @Id
     @Column(length = 50)
-    private String code;    // STEP_CONSULT, STEP_DKDN, ...
+    private String code; // STEP_CONSULT...
 
     private String name;
 
     @Enumerated(EnumType.STRING)
-    private MilestoneType type;  // CORE / ADDON
+    private MilestoneType type;
 
     @Column(name = "min_package_level")
-    private Integer minPackageLevel; // 1 or 2
+    private Integer minPackageLevel;
 
     @Column(name = "sequence_order")
-    private Integer sequenceOrder;   // null nếu ADDON
+    private Integer sequenceOrder; // null nếu ADDON
 
     @Column(name = "sla_hours")
     private Integer slaHours;
@@ -43,7 +39,6 @@ public class MilestoneConfig {
     @Column(name = "payment_required")
     private Boolean paymentRequired;
 
-    // Audit
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
