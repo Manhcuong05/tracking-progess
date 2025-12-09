@@ -1,0 +1,105 @@
+{
+  "info": {
+    "name": "Tracking Progress - Payment Flow",
+    "_postman_id": "d2a3d7f2-1bd0-4f55-9c8f-7b6a4c6d8b1a",
+    "description": "Flow: Confirm package (unpaid) -> pay webhook -> unlock next core step",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1 - Confirm Package (unpaid)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"package_code\": \"GOI_1\",\n  \"addons\": [\"ZALO\"],\n  \"is_paid\": false\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/admin/leads/6/confirm-package",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8080",
+          "path": [
+            "api",
+            "admin",
+            "leads",
+            "6",
+            "confirm-package"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "2 - Payment Callback (mark paid)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"orderId\": \"{{orderId}}\",\n  \"success\": true\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/payment/callback",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8080",
+          "path": [
+            "api",
+            "payment",
+            "callback"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "3 - Complete STEP_DKDN (unlock next core step)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"COMPLETE\",\n  \"proof_doc_id\": \"file_001\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/admin/leads/6/progress/STEP_DKDN",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8080",
+          "path": [
+            "api",
+            "admin",
+            "leads",
+            "6",
+            "progress",
+            "STEP_DKDN"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}

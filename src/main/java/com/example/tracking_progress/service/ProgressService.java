@@ -5,37 +5,34 @@ import com.example.tracking_progress.entity.LeadProgress;
 import com.example.tracking_progress.entity.MilestoneConfig;
 import com.example.tracking_progress.enums.MilestoneStatus;
 import com.example.tracking_progress.enums.MilestoneType;
-import com.example.tracking_progress.enums.PaymentStatus;
-import com.example.tracking_progress.entity.Order;
 import com.example.tracking_progress.repository.LeadProgressRepository;
 import com.example.tracking_progress.repository.MilestoneConfigRepository;
-import com.example.tracking_progress.repository.OrderRepository;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.stereotype.Service;
 
-import jakarta.transaction.Transactional;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ProgressService {
 
     private final MilestoneConfigRepository configRepo;
     private final LeadProgressRepository progressRepo;
-    private final OrderRepository orderRepo;
 
     // =============================================================
-    // FR 4.1 – Tạo STEP_CONSULT khi tạo lead
+    // FR 4.1 - Tạo STEP_CONSULT khi lead mới được tạo
     // =============================================================
     @Transactional
-    public Map<String, Object> onLeadCreated(String leadId) {
+    public LeadProgress onLeadCreated(String leadId) {
 
-        // không tạo trùng
-        if (progressRepo.existsByLeadIdAndMilestoneCode(leadId, "STEP_CONSULT")) {
-            return Map.of("message", "Lead đã có STEP_CONSULT");
-        }
+        LeadProgress exist = progressRepo.findByLeadIdAndMilestoneCode(leadId, "STEP_CONSULT");
+        if (exist != null) return exist;
 
         LeadProgress lp = LeadProgress.builder()
                 .leadId(leadId)
@@ -45,15 +42,12 @@ public class ProgressService {
                 .build();
 
         progressRepo.save(lp);
-
-        return Map.of(
-                "lead_id", leadId,
-                "created", lp
-        );
+        log.info("✔ Created STEP_CONSULT for lead {}", leadId);
+        return lp;
     }
 
     // =============================================================
-    // FR 4.2 – Confirm package
+    // FR 4.2 - Confirm Package & Generate Steps
     // =============================================================
     @Transactional
     public Map<String, Object> confirmPackage(
@@ -67,41 +61,19 @@ public class ProgressService {
 
         // 1) Đảm bảo STEP_CONSULT tồn tại
         LeadProgress consult = progressRepo.findByLeadIdAndMilestoneCode(leadId, "STEP_CONSULT");
-
         if (consult == null) {
-            consult = LeadProgress.builder()
-                    .leadId(leadId)
-                    .milestoneCode("STEP_CONSULT")
-                    .status(MilestoneStatus.IN_PROGRESS)
-                    .startedAt(LocalDateTime.now())
-                    .build();
-            progressRepo.save(consult);
+            consult = onLeadCreated(leadId);
         }
 
-        // đánh dấu tư vấn hoàn thành
+        // Đánh dấu STEP_CONSULT hoàn thành
         consult.setStatus(MilestoneStatus.COMPLETED);
         consult.setCompletedAt(LocalDateTime.now());
         progressRepo.save(consult);
 
-        // ============================
-        // TẠO ORDER (nếu chưa có)
-        // ============================
-        Order order = orderRepo.findByLeadId(leadId);
-        if (order == null) {
-            order = Order.builder()
-                    .leadId(leadId)
-                    .packageCode(packageCode)
-                    .amount(level == 2 ? 1_999_000L : 999_000L) // có thể lấy từ config
-                    .paymentStatus(isPaid ? PaymentStatus.PAID : PaymentStatus.PENDING)
-                    .paidAt(isPaid ? LocalDateTime.now() : null)
-                    .build();
-            orderRepo.save(order);
-        }
+        // 2) Load toàn bộ configs
+        List<MilestoneConfig> allConfigs = configRepo.findAll();
 
-        // 2) Load config
-        List<MilestoneConfig> all = configRepo.findAll();
-
-        List<MilestoneConfig> coreSteps = all.stream()
+        List<MilestoneConfig> coreSteps = allConfigs.stream()
                 .filter(c -> c.getType() == MilestoneType.CORE)
                 .filter(c -> c.getMinPackageLevel() <= level)
                 .filter(c -> !c.getCode().equals("STEP_CONSULT"))
@@ -110,20 +82,22 @@ public class ProgressService {
 
         List<LeadProgress> created = new ArrayList<>();
 
-        // 3) Tạo core steps
+        // 3) Tạo CORE flow
         for (MilestoneConfig cfg : coreSteps) {
 
-            // Nếu đã có → bỏ qua (chống duplicate)
-            if (progressRepo.existsByLeadIdAndMilestoneCode(leadId, cfg.getCode())) {
-                continue;
-            }
+            // Check nếu milestone đã tồn tại → bỏ qua (fix duplicate)
+            LeadProgress exist = progressRepo.findByLeadIdAndMilestoneCode(leadId, cfg.getCode());
+            if (exist != null) continue;
 
             MilestoneStatus status;
 
+            // Bước 2 — check payment
             if (cfg.getSequenceOrder() == 2) {
-                status = cfg.getPaymentRequired() && !isPaid
-                        ? MilestoneStatus.WAITING_PAYMENT
-                        : MilestoneStatus.IN_PROGRESS;
+                if (cfg.getPaymentRequired() && !isPaid) {
+                    status = MilestoneStatus.WAITING_PAYMENT;
+                } else {
+                    status = MilestoneStatus.IN_PROGRESS;
+                }
             } else {
                 status = MilestoneStatus.LOCKED;
             }
@@ -142,14 +116,14 @@ public class ProgressService {
         // 4) Tạo ADDON
         if (addons != null) {
             for (String addon : addons) {
-
                 String code = "ADDON_" + addon.toUpperCase();
 
                 MilestoneConfig cfg = configRepo.findByCode(code);
-                if (cfg == null) throw new RuntimeException("Không tồn tại addon " + code);
+                if (cfg == null) throw new RuntimeException("Không tìm thấy addon " + code);
 
-                if (progressRepo.existsByLeadIdAndMilestoneCode(leadId, code))
-                    continue;
+                // check tồn tại
+                LeadProgress exist = progressRepo.findByLeadIdAndMilestoneCode(leadId, code);
+                if (exist != null) continue;
 
                 LeadProgress lp = LeadProgress.builder()
                         .leadId(leadId)
@@ -165,13 +139,12 @@ public class ProgressService {
 
         return Map.of(
                 "lead_id", leadId,
-                "order_id", order.getId(),
                 "steps_created", created
         );
     }
 
     // =============================================================
-    // Update progress (Start / Complete / Fail)
+    // FR 4.3 + 4.4 + 4.5 + 4.6 - Start / Complete / Fail
     // =============================================================
     @Transactional
     public Object updateProgress(
@@ -191,8 +164,7 @@ public class ProgressService {
         switch (action.toUpperCase()) {
 
             case "START" -> {
-                if (cfg.getType() == MilestoneType.CORE
-                        && !canStartCoreStep(leadId, cfg)) {
+                if (cfg.getType() == MilestoneType.CORE && !canStartCoreStep(leadId, cfg)) {
                     throw new RuntimeException("Không thể START vì step trước chưa COMPLETE.");
                 }
                 lp.setStatus(MilestoneStatus.IN_PROGRESS);
@@ -200,8 +172,8 @@ public class ProgressService {
             }
 
             case "COMPLETE" -> {
-                if (cfg.getRequiredProof() &&
-                        (proofDocId == null || proofDocId.isBlank())) {
+                // Check proof
+                if (cfg.getRequiredProof() && (proofDocId == null || proofDocId.isBlank())) {
                     throw new RuntimeException("Bước này cần upload proof.");
                 }
 
@@ -210,6 +182,7 @@ public class ProgressService {
                 lp.setProofDocId(proofDocId);
                 lp.setNote(note);
 
+                // Unlock next CORE step
                 if (cfg.getType() == MilestoneType.CORE) {
                     unlockNextCoreStep(leadId, cfg);
                 }
@@ -220,7 +193,7 @@ public class ProgressService {
                 lp.setCompletedAt(LocalDateTime.now());
             }
 
-            default -> throw new RuntimeException("Action không hợp lệ!");
+            default -> throw new RuntimeException("Action không hợp lệ: " + action);
         }
 
         progressRepo.save(lp);
@@ -228,53 +201,60 @@ public class ProgressService {
     }
 
     // =============================================================
-    // Check previous CORE step is completed
+    // CORE logic: check step trước đã complete
     // =============================================================
     private boolean canStartCoreStep(String leadId, MilestoneConfig cfg) {
 
         if (cfg.getSequenceOrder() == 1)
             return true;
 
-        MilestoneConfig prevCfg = configRepo.findCoreBySequence(cfg.getSequenceOrder() - 1);
+        int prevSeq = cfg.getSequenceOrder() - 1;
+
+        MilestoneConfig prevCfg = configRepo.findCoreBySequence(prevSeq);
         if (prevCfg == null) return false;
 
-        LeadProgress prev =
-                progressRepo.findByLeadIdAndMilestoneCode(leadId, prevCfg.getCode());
+        LeadProgress prev = progressRepo.findByLeadIdAndMilestoneCode(leadId, prevCfg.getCode());
 
         return prev != null && prev.getStatus() == MilestoneStatus.COMPLETED;
     }
 
     // =============================================================
-    // Unlock next CORE step
+    // Mở khoá step tiếp theo (CORE)
     // =============================================================
     private void unlockNextCoreStep(String leadId, MilestoneConfig cfg) {
 
-        MilestoneConfig nextCfg = configRepo.findCoreBySequence(cfg.getSequenceOrder() + 1);
+        int nextSeq = cfg.getSequenceOrder() + 1;
+
+        MilestoneConfig nextCfg = configRepo.findCoreBySequence(nextSeq);
         if (nextCfg == null) return;
 
-        LeadProgress lp =
+        LeadProgress nextStep =
                 progressRepo.findByLeadIdAndMilestoneCode(leadId, nextCfg.getCode());
-        if (lp == null) return;
 
-        if (lp.getStatus() == MilestoneStatus.LOCKED) {
-            lp.setStatus(MilestoneStatus.IN_PROGRESS);
-            lp.setStartedAt(LocalDateTime.now());
-            progressRepo.save(lp);
+        if (nextStep == null) return;
+
+        if (nextStep.getStatus() == MilestoneStatus.LOCKED
+                || nextStep.getStatus() == MilestoneStatus.WAITING_PAYMENT) {
+
+            nextStep.setStatus(MilestoneStatus.IN_PROGRESS);
+            nextStep.setStartedAt(LocalDateTime.now());
+
+            progressRepo.save(nextStep);
         }
     }
 
     // =============================================================
-    // Get all milestones for a lead
+    // API lấy toàn bộ milestones của lead
     // =============================================================
     public List<LeadMilestoneDto> getLeadMilestones(String leadId) {
 
         var configs = configRepo.findAll();
-        var map = configs.stream()
+        var configMap = configs.stream()
                 .collect(Collectors.toMap(MilestoneConfig::getCode, c -> c));
 
         return progressRepo.findByLeadIdOrderByCreatedAtAsc(leadId).stream()
                 .map(lp -> {
-                    MilestoneConfig cfg = map.get(lp.getMilestoneCode());
+                    MilestoneConfig cfg = configMap.get(lp.getMilestoneCode());
 
                     return LeadMilestoneDto.builder()
                             .milestoneCode(lp.getMilestoneCode())
@@ -282,9 +262,9 @@ public class ProgressService {
                             .milestoneType(cfg != null ? cfg.getType().name() : null)
                             .status(lp.getStatus())
                             .sequenceOrder(cfg != null ? cfg.getSequenceOrder() : null)
+                            .slaHours(cfg != null ? cfg.getSlaHours() : null)
                             .requiredProof(cfg != null ? cfg.getRequiredProof() : null)
                             .paymentRequired(cfg != null ? cfg.getPaymentRequired() : null)
-                            .slaHours(cfg != null ? cfg.getSlaHours() : null)
                             .startedAt(lp.getStartedAt())
                             .completedAt(lp.getCompletedAt())
                             .createdAt(lp.getCreatedAt())

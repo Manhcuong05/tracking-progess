@@ -70,7 +70,7 @@ public class MilestoneConfigSeeder implements CommandLineRunner {
                 .paymentRequired(false)
                 .requiredProof(false)
                 .slaHours(72)
-                .minPackageLevel(1)
+                .minPackageLevel(2) // chỉ áp dụng cho Gói 2
                 .build());
 
         repo.save(MilestoneConfig.builder()
