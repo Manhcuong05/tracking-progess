@@ -80,7 +80,7 @@ public class ProgressService {
             order = Order.builder()
                     .leadId(leadId)
                     .packageCode(packageCode)
-                    .amount((int) (level == 2 ? 1_999_000L : 999_000L))
+                    .amount(level == 2 ? 1_999_000L : 999_000L)
                     .paymentStatus(isPaid ? PaymentStatus.PAID : PaymentStatus.PENDING)
                     .paidAt(isPaid ? LocalDateTime.now() : null)
                     .build();
