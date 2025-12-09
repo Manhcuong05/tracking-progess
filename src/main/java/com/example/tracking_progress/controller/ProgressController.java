@@ -16,7 +16,19 @@ public class ProgressController {
     private final ProgressService progressService;
 
     /**
-     * Ultra xác nhận package → sinh milestone flow (core + addon)
+     * Giai đoạn 1 — Khởi tạo STEP_CONSULT cho lead mới
+     */
+    @PostMapping("/{leadId}/init-progress")
+    public ResponseEntity<?> initProgress(
+            @PathVariable("leadId") String leadId
+    ) {
+        return ResponseEntity.ok(
+                progressService.onLeadCreated(leadId)
+        );
+    }
+
+    /**
+     * Giai đoạn 2 — Ultra xác nhận package → sinh milestone flow (core + addon)
      */
     @PostMapping("/{leadId}/confirm-package")
     public ResponseEntity<?> confirmPackage(
@@ -31,8 +43,7 @@ public class ProgressController {
             addons = (List<String>) body.get("addons");
         }
 
-        boolean isPaid = body.get("is_paid") != null &&
-                Boolean.TRUE.equals(body.get("is_paid"));
+        boolean isPaid = Boolean.TRUE.equals(body.get("is_paid"));
 
         return ResponseEntity.ok(
                 progressService.confirmPackage(leadId, packageCode, addons, isPaid)
@@ -40,7 +51,7 @@ public class ProgressController {
     }
 
     /**
-     * Update milestone: START / COMPLETE / FAIL
+     * Giai đoạn 2 — Update milestone: START / COMPLETE / FAIL
      */
     @PostMapping("/{leadId}/progress/{milestoneCode}")
     public ResponseEntity<?> updateProgress(
@@ -57,6 +68,18 @@ public class ProgressController {
                 progressService.updateProgress(
                         leadId, milestoneCode, action, proofDocId, note
                 )
+        );
+    }
+
+    /**
+     * Giai đoạn 3 — API lấy toàn bộ step đã tạo của 1 lead
+     */
+    @GetMapping("/{leadId}/progress")
+    public ResponseEntity<?> getLeadProgress(
+            @PathVariable("leadId") String leadId
+    ) {
+        return ResponseEntity.ok(
+                progressService.getLeadMilestones(leadId)
         );
     }
 }
