@@ -15,7 +15,6 @@ public interface MilestoneConfigRepository extends JpaRepository<MilestoneConfig
     // Tìm step CORE theo sequence order (ProgressService cần)
     @Query("SELECT m FROM MilestoneConfig m WHERE m.type = 'CORE' AND m.sequenceOrder = :seq")
     MilestoneConfig findCoreBySequence(int seq);
-    MilestoneConfig findCoreBySequence(Integer sequenceOrder);
 
 
     // Lấy toàn bộ core step theo thứ tự

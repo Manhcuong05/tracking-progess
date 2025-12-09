@@ -3,10 +3,13 @@ package com.example.tracking_progress.service;
 import com.example.tracking_progress.dto.LeadMilestoneDto;
 import com.example.tracking_progress.entity.LeadProgress;
 import com.example.tracking_progress.entity.MilestoneConfig;
+import com.example.tracking_progress.entity.Order;
 import com.example.tracking_progress.enums.MilestoneStatus;
 import com.example.tracking_progress.enums.MilestoneType;
+import com.example.tracking_progress.enums.PaymentStatus;
 import com.example.tracking_progress.repository.LeadProgressRepository;
 import com.example.tracking_progress.repository.MilestoneConfigRepository;
+import com.example.tracking_progress.repository.OrderRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +27,7 @@ public class ProgressService {
 
     private final MilestoneConfigRepository configRepo;
     private final LeadProgressRepository progressRepo;
+    private final OrderRepository orderRepo;
 
     // =============================================================
     // FR 4.1 - Tạo STEP_CONSULT khi lead mới được tạo
@@ -69,6 +73,19 @@ public class ProgressService {
         consult.setStatus(MilestoneStatus.COMPLETED);
         consult.setCompletedAt(LocalDateTime.now());
         progressRepo.save(consult);
+
+        // 1b) Tạo ORDER nếu chưa có
+        Order order = orderRepo.findByLeadId(leadId);
+        if (order == null) {
+            order = Order.builder()
+                    .leadId(leadId)
+                    .packageCode(packageCode)
+                    .amount((int) (level == 2 ? 1_999_000L : 999_000L))
+                    .paymentStatus(isPaid ? PaymentStatus.PAID : PaymentStatus.PENDING)
+                    .paidAt(isPaid ? LocalDateTime.now() : null)
+                    .build();
+            orderRepo.save(order);
+        }
 
         // 2) Load toàn bộ configs
         List<MilestoneConfig> allConfigs = configRepo.findAll();
@@ -139,6 +156,7 @@ public class ProgressService {
 
         return Map.of(
                 "lead_id", leadId,
+                "order_id", order.getId(),
                 "steps_created", created
         );
     }
