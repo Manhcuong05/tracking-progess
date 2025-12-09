@@ -1,0 +1,233 @@
+{
+  "info": {
+    "name": "Tracking Progress API",
+    "_postman_id": "1d4efc4e-1a10-44d8-b772-bfe4d147c8c5",
+    "description": "Collection test toàn bộ flow Lead → Package → Milestones → Addons",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "0 - INIT LEAD (Tạo STEP_CONSULT mặc định)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"lead_id\": \"123\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/admin/leads/init",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "admin", "leads", "init"]
+        }
+      }
+    },
+    {
+      "name": "1 - CONFIRM PACKAGE (GOI_1 + Addons)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"package_code\": \"GOI_1\",\n  \"addons\": [\"ZALO\", \"WEB\"],\n  \"is_paid\": true\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/admin/leads/123/confirm-package",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "admin", "leads", "123", "confirm-package"]
+        }
+      }
+    },
+    {
+      "name": "1.1 - CONFIRM PACKAGE AGAIN (Expect ERROR)",
+      "request": {
+        "method": "POST",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"package_code\": \"GOI_1\",\n  \"addons\": [\"ZALO\"],\n  \"is_paid\": true\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/admin/leads/123/confirm-package",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "admin", "leads", "123", "confirm-package"]
+        }
+      }
+    },
+    {
+      "name": "2 - START STEP_MST (Expect ERROR: cần COMPLETE DKDN trước)",
+      "request": {
+        "method": "POST",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"action\": \"START\" }"
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/admin/leads/123/progress/STEP_MST",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "admin", "leads", "123", "progress", "STEP_MST"]
+        }
+      }
+    },
+    {
+      "name": "3 - START STEP_DKDN",
+      "request": {
+        "method": "POST",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"action\": \"START\" }"
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/admin/leads/123/progress/STEP_DKDN",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "admin", "leads", "123", "progress", "STEP_DKDN"]
+        }
+      }
+    },
+    {
+      "name": "4 - COMPLETE STEP_DKDN (cần PROOF)",
+      "request": {
+        "method": "POST",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"COMPLETE\",\n  \"proof_doc_id\": \"file_001\",\n  \"note\": \"Hoàn thành DKDN\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/admin/leads/123/progress/STEP_DKDN",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "admin", "leads", "123", "progress", "STEP_DKDN"]
+        }
+      }
+    },
+    {
+      "name": "5 - START STEP_MST (Đã unlock)",
+      "request": {
+        "method": "POST",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"action\": \"START\" }"
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/admin/leads/123/progress/STEP_MST",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "admin", "leads", "123", "progress", "STEP_MST"]
+        }
+      }
+    },
+    {
+      "name": "6 - COMPLETE STEP_MST (no proof)",
+      "request": {
+        "method": "POST",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"COMPLETE\",\n  \"note\": \"Đã lấy MST\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/admin/leads/123/progress/STEP_MST",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "admin", "leads", "123", "progress", "STEP_MST"]
+        }
+      }
+    },
+    {
+      "name": "7 - START STEP_HDDT",
+      "request": {
+        "method": "POST",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"action\": \"START\" }"
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/admin/leads/123/progress/STEP_HDDT",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "admin", "leads", "123", "progress", "STEP_HDDT"]
+        }
+      }
+    },
+    {
+      "name": "8 - COMPLETE STEP_HDDT (no proof)",
+      "request": {
+        "method": "POST",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"action\": \"COMPLETE\",\n  \"note\": \"HDDT xong\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/admin/leads/123/progress/STEP_HDDT",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "admin", "leads", "123", "progress", "STEP_HDDT"]
+        }
+      }
+    },
+    {
+      "name": "9 - START ADDON_WEB",
+      "request": {
+        "method": "POST",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"action\": \"START\" }"
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/admin/leads/123/progress/ADDON_WEB",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "admin", "leads", "123", "progress", "ADDON_WEB"]
+        }
+      }
+    },
+    {
+      "name": "10 - COMPLETE ADDON_WEB",
+      "request": {
+        "method": "POST",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"action\": \"COMPLETE\", \"note\": \"Done web\" }"
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/admin/leads/123/progress/ADDON_WEB",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "admin", "leads", "123", "progress", "ADDON_WEB"]
+        }
+      }
+    },
+    {
+      "name": "11 - COMPLETE ADDON_ZALO",
+      "request": {
+        "method": "POST",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"action\": \"COMPLETE\", \"note\": \"Done Zalo Biz\" }"
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/admin/leads/123/progress/ADDON_ZALO",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "admin", "leads", "123", "progress", "ADDON_ZALO"]
+        }
+      }
+    }
+  ]
+}

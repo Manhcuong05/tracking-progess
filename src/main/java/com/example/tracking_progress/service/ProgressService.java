@@ -162,7 +162,10 @@ public class ProgressService {
                 lp.setCompletedAt(LocalDateTime.now());
                 lp.setProofDocId(proofDocId);
                 lp.setNote(note);
-                unlockNextCoreStep(leadId, cfg);
+                // Chỉ unlock step tiếp theo cho CORE; ADDON không có sequenceOrder
+                if (cfg.getType() == MilestoneType.CORE && cfg.getSequenceOrder() != null) {
+                    unlockNextCoreStep(leadId, cfg);
+                }
             }
 
             case "FAIL" -> {
