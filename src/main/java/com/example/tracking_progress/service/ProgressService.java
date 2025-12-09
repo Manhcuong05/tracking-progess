@@ -50,7 +50,7 @@ public class ProgressService {
         return lp;
     }
 
-    // =============================================================
+        // =============================================================
     // FR 4.2 - Confirm Package & Generate Steps
     // =============================================================
     @Transactional
@@ -61,20 +61,63 @@ public class ProgressService {
             boolean isPaid
     ) {
 
+        // ============================================================
+        // CASE A: ADDON ONLY (packageCode null hoặc rỗng)
+        // ============================================================
+        if (packageCode == null || packageCode.isBlank()) {
+
+            List<LeadProgress> created = new ArrayList<>();
+
+            if (addons != null) {
+                for (String addon : addons) {
+
+                    String code = "ADDON_" + addon.toUpperCase();
+
+                    MilestoneConfig cfg = configRepo.findByCode(code);
+                    if (cfg == null)
+                        throw new RuntimeException("Không tìm thấy addon " + code);
+
+                    // nếu ADDON đã tồn tại → bỏ qua
+                    LeadProgress exist = progressRepo.findByLeadIdAndMilestoneCode(leadId, code);
+                    if (exist != null) continue;
+
+                    LeadProgress lp = LeadProgress.builder()
+                            .leadId(leadId)
+                            .milestoneCode(code)
+                            .status(MilestoneStatus.IN_PROGRESS)   // luôn IN_PROGRESS
+                            .startedAt(LocalDateTime.now())
+                            .build();
+
+                    progressRepo.save(lp);
+                    created.add(lp);
+                }
+            }
+
+            return Map.of(
+                    "mode", "ADDON_ONLY",
+                    "lead_id", leadId,
+                    "steps_created", created
+            );
+        }
+
+        // ============================================================
+        // CASE B: PACKAGE MODE (GOI_1 / GOI_2)
+        // ============================================================
+
         int level = packageCode.equalsIgnoreCase("GOI_2") ? 2 : 1;
 
-        // 1) Đảm bảo STEP_CONSULT tồn tại
+        // 1) đảm bảo có STEP_CONSULT
         LeadProgress consult = progressRepo.findByLeadIdAndMilestoneCode(leadId, "STEP_CONSULT");
         if (consult == null) {
             consult = onLeadCreated(leadId);
         }
 
-        // Đánh dấu STEP_CONSULT hoàn thành
+        // hoàn thành tư vấn
         consult.setStatus(MilestoneStatus.COMPLETED);
         consult.setCompletedAt(LocalDateTime.now());
         progressRepo.save(consult);
 
-        // 1b) Tạo ORDER nếu chưa có
+        // 2) tạo order nếu chưa có
         Order order = orderRepo.findByLeadId(leadId);
         if (order == null) {
             order = Order.builder()
@@ -87,9 +130,10 @@ public class ProgressService {
             orderRepo.save(order);
         }
 
-        // 2) Load toàn bộ configs
+        // 3) load cấu hình
         List<MilestoneConfig> allConfigs = configRepo.findAll();
 
+        // Core filter
         List<MilestoneConfig> coreSteps = allConfigs.stream()
                 .filter(c -> c.getType() == MilestoneType.CORE)
                 .filter(c -> c.getMinPackageLevel() <= level)
@@ -99,22 +143,18 @@ public class ProgressService {
 
         List<LeadProgress> created = new ArrayList<>();
 
-        // 3) Tạo CORE flow
+        // 4) tạo CORE
         for (MilestoneConfig cfg : coreSteps) {
 
-            // Check nếu milestone đã tồn tại → bỏ qua (fix duplicate)
-            LeadProgress exist = progressRepo.findByLeadIdAndMilestoneCode(leadId, cfg.getCode());
-            if (exist != null) continue;
+            if (progressRepo.findByLeadIdAndMilestoneCode(leadId, cfg.getCode()) != null)
+                continue;
 
             MilestoneStatus status;
 
-            // Bước 2 — check payment
             if (cfg.getSequenceOrder() == 2) {
-                if (cfg.getPaymentRequired() && !isPaid) {
-                    status = MilestoneStatus.WAITING_PAYMENT;
-                } else {
-                    status = MilestoneStatus.IN_PROGRESS;
-                }
+                status = (cfg.getPaymentRequired() && !isPaid)
+                        ? MilestoneStatus.WAITING_PAYMENT
+                        : MilestoneStatus.IN_PROGRESS;
             } else {
                 status = MilestoneStatus.LOCKED;
             }
@@ -130,17 +170,18 @@ public class ProgressService {
             created.add(lp);
         }
 
-        // 4) Tạo ADDON
+        // 5) tạo ADDON nếu người dùng có chọn
         if (addons != null) {
             for (String addon : addons) {
+
                 String code = "ADDON_" + addon.toUpperCase();
-
                 MilestoneConfig cfg = configRepo.findByCode(code);
-                if (cfg == null) throw new RuntimeException("Không tìm thấy addon " + code);
 
-                // check tồn tại
-                LeadProgress exist = progressRepo.findByLeadIdAndMilestoneCode(leadId, code);
-                if (exist != null) continue;
+                if (cfg == null)
+                    throw new RuntimeException("Không tìm thấy addon " + code);
+
+                if (progressRepo.findByLeadIdAndMilestoneCode(leadId, code) != null)
+                    continue;
 
                 LeadProgress lp = LeadProgress.builder()
                         .leadId(leadId)
@@ -155,11 +196,13 @@ public class ProgressService {
         }
 
         return Map.of(
+                "mode", "FULL_PACKAGE",
                 "lead_id", leadId,
                 "order_id", order.getId(),
                 "steps_created", created
         );
     }
+
 
     // =============================================================
     // FR 4.3 + 4.4 + 4.5 + 4.6 - Start / Complete / Fail

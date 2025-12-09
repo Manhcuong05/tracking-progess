@@ -28,7 +28,7 @@ public class ProgressController {
     }
 
     /**
-     * Giai đoạn 2 — Ultra xác nhận package → sinh milestone flow (core + addon)
+     * Giai đoạn 2 — Xác nhận package hoặc chỉ tạo Addon
      */
     @PostMapping("/{leadId}/confirm-package")
     public ResponseEntity<?> confirmPackage(
@@ -36,17 +36,41 @@ public class ProgressController {
             @RequestBody Map<String, Object> body
     ) {
 
-        String packageCode = (String) body.get("package_code");
+        // Lấy package_code (KHÔNG BẮT BUỘC)
+        String packageCode = body.get("package_code") != null
+                ? body.get("package_code").toString()
+                : null;
 
+        // Lấy addons nếu có
         List<String> addons = null;
-        if (body.containsKey("addons") && body.get("addons") instanceof List) {
-            addons = (List<String>) body.get("addons");
+        if (body.containsKey("addons") && body.get("addons") instanceof List<?> raw) {
+            addons = raw.stream().map(Object::toString).toList();
         }
 
-        boolean isPaid = Boolean.TRUE.equals(body.get("is_paid"));
+        // Lấy trạng thái thanh toán (chỉ dùng khi có package)
+        boolean isPaid = body.get("is_paid") != null
+                && Boolean.parseBoolean(body.get("is_paid").toString());
 
+        // CASE A: GỬI ADDON ONLY (không có gói)
+        if (packageCode == null || packageCode.isBlank()) {
+            return ResponseEntity.ok(
+                    progressService.confirmPackage(
+                            leadId,
+                            null,       // không có gói
+                            addons,
+                            false       // addon only → không xử lý payment
+                    )
+            );
+        }
+
+        // CASE B: GÓI 1 / GÓI 2
         return ResponseEntity.ok(
-                progressService.confirmPackage(leadId, packageCode, addons, isPaid)
+                progressService.confirmPackage(
+                        leadId,
+                        packageCode,
+                        addons,
+                        isPaid
+                )
         );
     }
 
@@ -72,7 +96,7 @@ public class ProgressController {
     }
 
     /**
-     * Giai đoạn 3 — API lấy toàn bộ step đã tạo của 1 lead
+     * Giai đoạn 3 — API lấy toàn bộ step đã tạo của lead
      */
     @GetMapping("/{leadId}/progress")
     public ResponseEntity<?> getLeadProgress(
