@@ -29,9 +29,7 @@ public class ProgressService {
     private final LeadProgressRepository progressRepo;
     private final OrderRepository orderRepo;
 
-    // =============================================================
     // FR 4.1 - Tạo STEP_CONSULT khi lead mới được tạo
-    // =============================================================
     @Transactional
     public LeadProgress onLeadCreated(String leadId) {
 
@@ -50,9 +48,8 @@ public class ProgressService {
         return lp;
     }
 
-        // =============================================================
     // FR 4.2 - Confirm Package & Generate Steps
-    // =============================================================
+    
     @Transactional
     public Map<String, Object> confirmPackage(
             String leadId,
@@ -61,9 +58,8 @@ public class ProgressService {
             boolean isPaid
     ) {
 
-        // ============================================================
-        // CASE A: ADDON ONLY (packageCode null hoặc rỗng)
-        // ============================================================
+        // CASE A: ADDON ONLY 
+        
         if (packageCode == null || packageCode.isBlank()) {
 
             List<LeadProgress> created = new ArrayList<>();
@@ -84,7 +80,7 @@ public class ProgressService {
                     LeadProgress lp = LeadProgress.builder()
                             .leadId(leadId)
                             .milestoneCode(code)
-                            .status(MilestoneStatus.IN_PROGRESS)   // luôn IN_PROGRESS
+                            .status(MilestoneStatus.IN_PROGRESS)   
                             .startedAt(LocalDateTime.now())
                             .build();
 
@@ -100,10 +96,9 @@ public class ProgressService {
             );
         }
 
-        // ============================================================
+    
         // CASE B: PACKAGE MODE (GOI_1 / GOI_2)
-        // ============================================================
-
+    
         int level = packageCode.equalsIgnoreCase("GOI_2") ? 2 : 1;
 
         // 1) đảm bảo có STEP_CONSULT
@@ -204,9 +199,7 @@ public class ProgressService {
     }
 
 
-    // =============================================================
     // FR 4.3 + 4.4 + 4.5 + 4.6 - Start / Complete / Fail
-    // =============================================================
     @Transactional
     public Object updateProgress(
             String leadId,
@@ -261,9 +254,8 @@ public class ProgressService {
         return lp;
     }
 
-    // =============================================================
-    // CORE logic: check step trước đã complete
-    // =============================================================
+    // CORE logic
+
     private boolean canStartCoreStep(String leadId, MilestoneConfig cfg) {
 
         if (cfg.getSequenceOrder() == 1)
@@ -279,9 +271,9 @@ public class ProgressService {
         return prev != null && prev.getStatus() == MilestoneStatus.COMPLETED;
     }
 
-    // =============================================================
-    // Mở khoá step tiếp theo (CORE)
-    // =============================================================
+    
+    // Mở khoá step
+    
     private void unlockNextCoreStep(String leadId, MilestoneConfig cfg) {
 
         int nextSeq = cfg.getSequenceOrder() + 1;
@@ -304,9 +296,9 @@ public class ProgressService {
         }
     }
 
-    // =============================================================
+    
     // API lấy toàn bộ milestones của lead
-    // =============================================================
+    
     public List<LeadMilestoneDto> getLeadMilestones(String leadId) {
 
         var configs = configRepo.findAll();

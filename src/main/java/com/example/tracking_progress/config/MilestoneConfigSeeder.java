@@ -35,7 +35,7 @@ public class MilestoneConfigSeeder implements CommandLineRunner {
                 .type(MilestoneType.CORE)
                 .sequenceOrder(2)
                 .paymentRequired(true)
-                .requiredProof(false)
+                .requiredProof(true)
                 .slaHours(48)
                 .minPackageLevel(1)
                 .build());
@@ -61,7 +61,8 @@ public class MilestoneConfigSeeder implements CommandLineRunner {
                 .slaHours(48)
                 .minPackageLevel(1)
                 .build());
-
+        
+                // chỉ áp dụng cho Gói 2
         repo.save(MilestoneConfig.builder()
                 .code("STEP_TAX_SVC")
                 .name("Dịch vụ thuế")
@@ -70,7 +71,7 @@ public class MilestoneConfigSeeder implements CommandLineRunner {
                 .paymentRequired(false)
                 .requiredProof(false)
                 .slaHours(72)
-                .minPackageLevel(2) // chỉ áp dụng cho Gói 2
+                .minPackageLevel(2) 
                 .build());
 
         repo.save(MilestoneConfig.builder()

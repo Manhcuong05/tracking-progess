@@ -17,7 +17,7 @@ public class MilestoneConfig {
 
     @Id
     @Column(length = 50)
-    private String code; // STEP_CONSULT...
+    private String code; 
 
     private String name;
 
@@ -28,7 +28,7 @@ public class MilestoneConfig {
     private Integer minPackageLevel;
 
     @Column(name = "sequence_order")
-    private Integer sequenceOrder; // null nếu ADDON
+    private Integer sequenceOrder; 
 
     @Column(name = "sla_hours")
     private Integer slaHours;
