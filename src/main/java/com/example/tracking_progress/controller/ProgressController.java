@@ -14,6 +14,8 @@ import java.util.Map;
 public class ProgressController {
 
     private final ProgressService progressService;
+   
+
 
      // Giai đoạn 1 — Khởi tạo STEP_CONSULT cho lead mới
     @PostMapping("/{leadId}/init-progress")
@@ -103,4 +105,7 @@ public class ProgressController {
                 progressService.getLeadMilestones(leadId)
         );
     }
+
+
+
 }
